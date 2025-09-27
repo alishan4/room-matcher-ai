@@ -1,81 +1,98 @@
-import re
-from typing import Dict, Tuple
-from ..utils.lexicons import LEX
+from typing import Dict
+from ..utils.num import as_int
 
-INT = lambda s: int(re.sub(r'[,_. ]','',s)) if s else None
+_BUDGET_KEYS = [
+    "budget_pkr","budget","budget_PKR","monthly_budget","rent_budget","expected_budget"
+]
 
-BUDGET_RE = re.compile(r'(?:PKR|Rs|Rupees|rup(?:ee|ay)?)[\s:]*([0-9][0-9,_. ]+)', re.I)
-TIME_10PM_RE = re.compile(r'(\b10\s*pm\b)|(\b10\s*bjy\b)', re.I)
+# Map human-ish labels to our canonical enums
+_SLEEP_MAP = {
+    "early riser": "early_bird",
+    "early_bird": "early_bird",
+    "early": "early_bird",
+    "night owl": "night_owl",
+    "night_owl": "night_owl",
+    "late": "night_owl",
+    "flex": "flex",
+    "flexible": "flex",
+}
 
-def parse_profile_text(text:str, mode:str='degraded')->Tuple[Dict,Dict]:
-    text_low = text.lower()
-    prof = {
-        "id": None,
-        "name": None,
-        "city": None,
-        "budget_pkr": None,
-        "sleep_schedule": None,
-        "cleanliness": None,
-        "noise_tolerance": None,
-        "study_habits": None,
-        "food_pref": None,
-        "smoking": None,
-        "guests_freq": None,
-        "gender_pref": None,
-        "languages": ["ur","en"],
-        "raw_text": text
-    }
-    conf = {}
+_CLEAN_MAP = {
+    "high": "high",
+    "medium": "medium",
+    "moderate": "medium",
+    "avg": "medium",
+    "average": "medium",
+    "low": "low",
+    "messy": "low",
+    "neat": "high",
+    "tidy": "high",
+}
 
-    # budget
-    m = BUDGET_RE.search(text)
-    if m:
-        prof["budget_pkr"] = INT(m.group(1)); conf["budget"] = 0.9
+_NOISE_MAP = {
+    "low": "low",
+    "quiet": "low",
+    "medium": "medium",
+    "moderate": "medium",
+    "high": "high",
+    "loud": "high",
+}
 
-    # sleep
-    if any(k in text_low for k in LEX["night_owl"]):
-        prof["sleep_schedule"] = "night_owl"; conf["sleep"] = 0.8
-    elif any(k in text_low for k in LEX["early_bird"]) or TIME_10PM_RE.search(text_low):
-        prof["sleep_schedule"] = "early_bird"; conf["sleep"] = 0.7
+_GUESTS_MAP = {
+    "never": "rare",
+    "rare": "rare",
+    "sometimes": "sometimes",
+    "weekly": "sometimes",
+    "often": "often",
+    "daily": "daily",
+    "frequent": "often",
+}
 
-    # cleanliness
-    if any(k in text_low for k in LEX["clean_high"]):
-        prof["cleanliness"] = "high"; conf["cleanliness"] = 0.75
-    elif any(k in text_low for k in LEX["clean_low"]):
-        prof["cleanliness"] = "low"; conf["cleanliness"] = 0.7
+def _norm_enum(val: str, table: Dict[str, str]) -> str | None:
+    if not val: return None
+    return table.get(str(val).strip().lower())
 
-    # noise/quiet
-    if any(k in text_low for k in LEX["quiet"]):
-        prof["noise_tolerance"] = "low"; conf["noise"] = 0.7
-    elif any(k in text_low for k in LEX["party"]) or any(k in text_low for k in LEX["music"]):
-        prof["noise_tolerance"] = "high"; conf["noise"] = 0.7
+def _pick_budget(p: Dict) -> int | None:
+    for k in _BUDGET_KEYS:
+        if k in p and p.get(k) is not None:
+            return as_int(p.get(k))
+    return None
 
-    # smoking
-    if any(k in text_low for k in LEX["smoking_yes"]): prof["smoking"]="yes"; conf["smoking"]=0.7
-    if any(k in text_low for k in LEX["smoking_no"]): prof["smoking"]="no"; conf["smoking"]=0.7
+def normalize_profile(p: Dict) -> Dict:
+    sleep = _norm_enum(p.get("sleep_schedule"), _SLEEP_MAP)
+    clean = _norm_enum(p.get("cleanliness"), _CLEAN_MAP)
+    noise = _norm_enum(p.get("noise_tolerance"), _NOISE_MAP)
+    guests = _norm_enum(p.get("guests_freq"), _GUESTS_MAP)
 
-    # guests
-    if any(k in text_low for k in LEX["party"]):
-        prof["guests_freq"] = "often"; conf["guests"]=0.7
+    # Some datasets use alternative field names
+    raw_text = p.get("raw_text") or p.get("raw_profile_text") or ""
 
-    return prof, conf
+    # Normalize smoking to "yes"/"no"/None
+    sm = p.get("smoking")
+    if isinstance(sm, bool):
+        sm = "yes" if sm else "no"
+    elif isinstance(sm, str):
+        sm = sm.strip().lower()
+        if sm in ("y","yes","true"): sm = "yes"
+        elif sm in ("n","no","false"): sm = "no"
+        else: sm = None
+    else:
+        sm = None
 
-def normalize_profile(p:Dict)->Dict:
-    # Ensure keys exist and normalize typical enums
     out = {
         "id": p.get("id"),
         "name": p.get("name"),
         "city": (p.get("city") or ""),
-        "budget_pkr": p.get("budget_pkr"),
-        "sleep_schedule": p.get("sleep_schedule"),
-        "cleanliness": p.get("cleanliness"),
-        "noise_tolerance": p.get("noise_tolerance"),
+        "budget_pkr": _pick_budget(p),
+        "sleep_schedule": sleep,
+        "cleanliness": clean,
+        "noise_tolerance": noise,
         "study_habits": p.get("study_habits"),
         "food_pref": p.get("food_pref"),
-        "smoking": p.get("smoking"),
-        "guests_freq": p.get("guests_freq"),
+        "smoking": sm,
+        "guests_freq": guests,
         "gender_pref": p.get("gender_pref"),
         "languages": p.get("languages") or ["ur","en"],
-        "raw_text": p.get("raw_text",""),
+        "raw_text": raw_text,
     }
     return out

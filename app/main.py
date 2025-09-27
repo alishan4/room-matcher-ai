@@ -1,20 +1,48 @@
-import os
-from fastapi import FastAPI, Body, Query
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+# app/main.py
+import os, time
 from typing import List, Optional, Dict, Any
+from fastapi import FastAPI, Header
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from .graph import run_pipeline
-from .utils.store import DataStore
+from .services.firestore import fetch_all_profiles, fetch_all_listings
 
-MODE = os.getenv("MODE", "degraded").lower()
+SERVER_DEFAULT_MODE = os.getenv("MODE", "online").lower()
+FIRESTORE_ENABLED = os.getenv("FIRESTORE_ENABLED", "true").lower() == "true"
 
-app = FastAPI(title="Room Matcher AI", version="0.1.0")
+CACHE_TTL_SEC = int(os.getenv("CACHE_TTL_SEC", "120"))
+_profiles_cache: List[Dict[str, Any]] = []
+_listings_cache: List[Dict[str, Any]] = []
+_cache_at: float = 0.0
+LAST_EFFECTIVE_MODE = SERVER_DEFAULT_MODE
 
-store = DataStore()  # loads JSON datasets from app/data
+def _load_cached() -> None:
+    global _profiles_cache, _listings_cache, _cache_at
+    now = time.time()
+    if now - _cache_at < CACHE_TTL_SEC and _profiles_cache and _listings_cache:
+        return
+    # Read once (normalized inside fetch_all_*)
+    _profiles_cache = fetch_all_profiles()
+    _listings_cache = fetch_all_listings()
+    _cache_at = now
 
-class ParseReq(BaseModel):
-    text: str
-    mode: Optional[str] = None
+def _mode(req_mode: Optional[str], header_mode: Optional[str]) -> str:
+    global LAST_EFFECTIVE_MODE
+    m = (req_mode or header_mode or SERVER_DEFAULT_MODE).lower()
+    if m not in ("online", "degraded"):
+        m = SERVER_DEFAULT_MODE
+    LAST_EFFECTIVE_MODE = m
+    return m
+
+app = FastAPI(title="Room Matcher AI", version="0.3.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class Profile(BaseModel):
     id: Optional[str] = None
@@ -32,14 +60,13 @@ class Profile(BaseModel):
     languages: Optional[List[str]] = None
     raw_text: Optional[str] = None
 
+class ParseReq(BaseModel):
+    text: str
+    mode: Optional[str] = None
+
 class MatchTopReq(BaseModel):
     profile: Profile
     k: int = 5
-    mode: Optional[str] = None
-
-class PairExplainReq(BaseModel):
-    a_id: str
-    b_id: str
     mode: Optional[str] = None
 
 class RoomSuggestReq(BaseModel):
@@ -49,40 +76,43 @@ class RoomSuggestReq(BaseModel):
     mode: Optional[str] = None
 
 @app.get("/healthz")
-def health():
-    return {"ok": True, "mode": MODE, "profiles": len(store.profiles), "listings": len(store.listings)}
+def healthz():
+    return {
+        "status": "ok",
+        "server_default_mode": SERVER_DEFAULT_MODE,
+        "last_effective_mode": LAST_EFFECTIVE_MODE,
+        "firestore_enabled": FIRESTORE_ENABLED,
+        "project": os.getenv("GCP_PROJECT"),
+        "profiles_cached": len(_profiles_cache),
+        "listings_cached": len(_listings_cache),
+        "cache_age_sec": max(0, int(time.time() - _cache_at)) if _cache_at else None,
+        "cache_ttl_sec": CACHE_TTL_SEC,
+    }
 
 @app.post("/profiles/parse")
-def parse_profile(req: ParseReq):
-    mode = (req.mode or MODE).lower()
+def parse_profile(req: ParseReq, x_mode: Optional[str] = Header(None)):
+    mode = _mode(req.mode, x_mode)
     from .agents.profile_reader import parse_profile_text
     prof, conf = parse_profile_text(req.text, mode=mode)
-    return {"profile": prof, "confidence": conf}
+    return {"profile": prof, "confidence": conf, "mode_used": mode}
 
 @app.post("/match/top")
-def match_top(req: MatchTopReq):
-    mode = (req.mode or MODE).lower()
-    # Run the pipeline against datastore profiles
-    result = run_pipeline(input_profile=req.profile.dict(), candidates=store.profiles, listings=store.listings, mode=mode, top_k=req.k)
+def match_top(req: MatchTopReq, x_mode: Optional[str] = Header(None)):
+    mode = _mode(req.mode, x_mode)
+    _load_cached()
+    result = run_pipeline(
+        input_profile=req.profile.dict(),
+        candidates=_profiles_cache,
+        listings=_listings_cache,
+        mode=mode,
+        top_k=req.k
+    )
     return JSONResponse(result)
 
-@app.post("/pair/explain")
-def pair_explain(req: PairExplainReq):
-    a = next((p for p in store.profiles if p.get("id")==req.a_id), None)
-    b = next((p for p in store.profiles if p.get("id")==req.b_id), None)
-    if not a or not b:
-        return JSONResponse({"error": "profile(s) not found"}, status_code=404)
-    from .agents.match_scorer import score_pair
-    from .agents.red_flag import red_flags
-    from .agents.wingman import explain_and_tips
-    score, reasons, subs = score_pair(a,b)
-    flags = red_flags(a,b)
-    tips = explain_and_tips(a,b,score,reasons,flags)
-    return {"score": score, "reasons": reasons, "subscores": subs, "conflicts": flags, "tips": tips}
-
 @app.post("/rooms/suggest")
-def rooms_suggest(req: RoomSuggestReq):
-    mode = (req.mode or MODE).lower()
+def rooms_suggest(req: RoomSuggestReq, x_mode: Optional[str] = Header(None)):
+    mode = _mode(req.mode, x_mode)
+    _load_cached()
     from .agents.room_hunter import suggest_rooms
-    listings = suggest_rooms(req.city, req.per_person_budget, req.needed_amenities, store.listings, mode=mode, limit=5)
-    return {"listings": listings}
+    out = suggest_rooms(req.city, req.per_person_budget, req.needed_amenities, _listings_cache, mode=mode, limit=5)
+    return {"listings": out, "mode_used": mode}

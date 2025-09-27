@@ -1,52 +1,77 @@
-import os
+# app/graph.py
 from typing import List, Dict, Any
 from .agents.profile_reader import normalize_profile
-from .utils.retrieval import retrieve_candidates
+from .agents.retrieval import CandidateRetrieval
 from .agents.match_scorer import score_pair
 from .agents.red_flag import red_flags
-from .agents.wingman import explain_and_tips
-from .agents.room_hunter import suggest_rooms
-from .utils.trace import Trace
+from .agents.wingman import wingman
+from .agents.room_hunter import rank_rooms
+from .utils.num import as_int
 
-MODE = os.getenv("MODE", "degraded").lower()
+def run_pipeline(
+    input_profile: Dict[str, Any],
+    candidates: List[Dict[str, Any]],
+    listings: List[Dict[str, Any]],
+    mode: str = "degraded",
+    top_k: int = 5
+) -> Dict[str, Any]:
 
-def run_pipeline(input_profile: Dict[str,Any], candidates: List[Dict[str,Any]], listings: List[Dict[str,Any]], mode:str=MODE, top_k:int=5) -> Dict[str,Any]:
-    trace = Trace(mode=mode)
-    # 1) Normalize/validate profile (if coming from UI form, it's already structured but we enforce defaults)
-    a = normalize_profile(input_profile)
-    trace.add_step("ProfileReader", {"input_fields": list(input_profile.keys())}, {"normalized": True})
-    # 2) Candidate retrieval (FAISS if online; keyword/rule if degraded)
-    cands = retrieve_candidates(a, candidates, top_n=40 if mode=="online" else 20, mode=mode, trace=trace)
-    results = []
-    # 3) Score + Red Flags
-    for b in cands:
-        score, reasons, subs = score_pair(a,b)
-        flags = red_flags(a,b)
-        results.append({
-            "other_profile_id": b.get("id"),
-            "other_name": b.get("name"),
-            "score": score,
+    class _MemDS:
+        def __init__(self, profiles: List[Dict[str, Any]]):
+            self._profiles = profiles
+            self.faiss = None
+        def fetch_all_profiles(self) -> List[Dict[str, Any]]:
+            return self._profiles
+
+    q = normalize_profile(input_profile)
+    ds = _MemDS(candidates)
+    retr = CandidateRetrieval(ds)
+    pool, meta = retr.retrieve(q, top_n=max(top_k * 10, 100), mode=mode)
+
+    items: List[Dict[str, Any]] = []
+    for c in pool:
+        total, reasons, subscores = score_pair(q, normalize_profile(c))
+        flags = red_flags(q, c)
+
+        # <- budget from either key:
+        cand_budget = as_int(c.get("budget_pkr") or c.get("budget_PKR") or c.get("budget"))
+
+        items.append({
+            "other_profile_id": c.get("id"),
+            "other_name": c.get("name"),
+            "score": total,
             "reasons": reasons,
             "conflicts": flags,
-            "subscores": subs,
-            "city": b.get("city"),
-            "budget_pkr": b.get("budget_pkr")
+            "subscores": subscores,
+            "city": c.get("city"),
+            "budget_pkr": cand_budget,
+            "tips": wingman(reasons, flags),
         })
-        trace.add_step("MatchScorer", {"pair": f"{a.get('id','A?')} vs {b.get('id','B?')}"}, {"score": score, "flags": [f['type'] for f in flags]})
-    # sort
-    results.sort(key=lambda x: x["score"], reverse=True)
-    top = results[:top_k]
-    # 4) Wingman explanations
-    for r in top:
-        b = next((p for p in candidates if p.get("id")==r["other_profile_id"]), None)
-        r["tips"] = explain_and_tips(a,b,r["score"],r["reasons"],r["conflicts"])
-    # 5) Optional room suggestions for the #1 match (demo sweetener)
-    room_recs = []
-    if top:
-        best = top[0]
-        city = best.get("city") or a.get("city")
-        # per-person budget: min of the two budgets
-        per_person_budget = min((a.get("budget_pkr") or 0), (best.get("budget_pkr") or 0))
-        room_recs = suggest_rooms(city, per_person_budget, [], listings, mode=mode, limit=3)
-        trace.add_step("RoomHunter", {"city": city, "budget": per_person_budget}, {"count": len(room_recs)})
-    return {"mode": mode, "matches": top, "rooms": room_recs, "trace": trace.to_dict()}
+
+    items.sort(key=lambda x: x["score"], reverse=True)
+    top = items[:top_k]
+
+    rooms = rank_rooms(q, listings, k=3)
+
+    # ---- safe flag extraction for trace (no more 500) ----
+    def _flag_label(f):
+        if isinstance(f, dict):
+            return f.get("type")
+        return str(f)
+
+    trace = {
+        "mode": mode,
+        "steps": [
+            {"agent": "ProfileReader", "inputs": {"fields": list(input_profile.keys())}, "outputs": {"normalized": True}},
+            {"agent": "CandidateRetrieval", "inputs": {"method": meta.get("method")}, "outputs": {"count": len(pool), **({"fallback": meta.get("fallback")} if meta.get("fallback") else {})}},
+        ]
+    }
+    for t in top:
+        trace["steps"].append({
+            "agent": "MatchScorer",
+            "inputs": {"pair": f'{q.get("id","A?")} vs {t["other_profile_id"]}'},
+            "outputs": {"score": t["score"], "flags": [_flag_label(f) for f in (t.get("conflicts") or [])]},
+        })
+    trace["steps"].append({"agent": "RoomHunter", "inputs": {"city": q.get("city"), "budget": q.get("budget_pkr")}, "outputs": {"count": len(rooms)}})
+
+    return {"mode": mode, "matches": top, "rooms": rooms, "trace": trace}
