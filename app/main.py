@@ -92,9 +92,35 @@ def healthz():
 @app.post("/profiles/parse")
 def parse_profile(req: ParseReq, x_mode: Optional[str] = Header(None)):
     mode = _mode(req.mode, x_mode)
+
     from .agents.profile_reader import parse_profile_text
     prof, conf = parse_profile_text(req.text, mode=mode)
     return {"profile": prof, "confidence": conf, "mode_used": mode}
+
+    try:
+        from .agents.profile_reader import parse_profile_text
+        prof, conf = parse_profile_text(req.text or "", mode=mode)
+        return {"profile": prof, "confidence": conf, "mode_used": mode}
+    except Exception as e:
+        # Prevent crash, return fallback
+        fallback = {
+            "city": None,
+            "budget_pkr": None,
+            "sleep_schedule": None,
+            "cleanliness": None,
+            "noise_tolerance": None,
+            "smoking": None,
+            "guests_freq": None,
+            "raw_text": req.text or ""
+        }
+        return {
+            "profile": fallback,
+            "confidence": 0.0,
+            "mode_used": mode,
+            "warning": f"parse_error: {str(e)}"
+        }
+
+
 
 @app.post("/match/top")
 def match_top(req: MatchTopReq, x_mode: Optional[str] = Header(None)):
