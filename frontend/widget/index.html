@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Room Matcher Widget Test</title>
+  </head>
+  <body style="background:#222;color:#eee;">
+    <h1>Widget Dev Preview</h1>
+    <div id="room-matcher"></div>
+    <script type="module">
+      import { mount } from "./src/mount.tsx";
+      mount("#room-matcher", { apiBase: "http://127.0.0.1:8082" });
+    </script>
+  </body>
+</html>

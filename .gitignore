@@ -1,20 +1,30 @@
-# Byte-compiled / optimized / DLL files
+# python bytecode & caches
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Virtual environment
-.env/
+# environments
+.venv/
 venv/
-ENV/
-env/
+.env
+.env.*
 
-# IDE junk
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS junk
+# OS/IDE
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+
+# streamlit
+.streamlit/secrets.toml
+
+# faiss / embeddings (keep if you intend to commit)
+*.faiss
+*.index
+*.npy
+
+# notebooks
+.ipynb_checkpoints/
