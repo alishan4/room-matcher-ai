@@ -1,288 +1,198 @@
-import { useState } from "react";
+// frontend/widget/src/RoomMatcherWidget.tsx
+import React, { useState } from "react";
 
+// 👇 Props match backend inputs
 export interface RoomMatcherWidgetProps {
   apiBase?: string;
   apiKey?: string;
-  showRooms?: boolean;
+  defaultCity?: string;
+  defaultBudget?: number;
+  defaultRole?: "student" | "professional";
+  defaultAnchor?: string;
+  defaultGeo?: { lat: number; lng: number };
 }
 
 export default function RoomMatcherWidget({
   apiBase = "http://127.0.0.1:8082",
   apiKey,
-  showRooms = true,
+  defaultCity = "Lahore",
+  defaultBudget = 18000,
+  defaultRole = "student",
+  defaultAnchor = "",
+  defaultGeo
 }: RoomMatcherWidgetProps) {
-  // form state
-  const [city, setCity] = useState("Lahore");
-  const [budget, setBudget] = useState(18000);
-  const [sleep, setSleep] = useState("");
-  const [cleanliness, setCleanliness] = useState("");
-  const [noise, setNoise] = useState("");
-  const [guests, setGuests] = useState("");
-  const [smoking, setSmoking] = useState("");
-  const [adText, setAdText] = useState("");
+  // ---------------- State ----------------
+  const [city, setCity] = useState(defaultCity);
+  const [budget, setBudget] = useState(defaultBudget);
+  const [role, setRole] = useState(defaultRole);
+  const [anchor, setAnchor] = useState(defaultAnchor);
+  const [lat, setLat] = useState<number | undefined>(defaultGeo?.lat);
+  const [lng, setLng] = useState<number | undefined>(defaultGeo?.lng);
+  const [result, setResult] = useState<any>(null);
 
-  // result state
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [matches, setMatches] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
+  // ---------------- API Call ----------------
+  async function handleMatch() {
+    const profile: any = {
+      city,
+      budget_pkr: budget,
+      role,
+      anchor_location: anchor ? { name: anchor } : null,
+      geo: lat && lng ? { lat, lng } : null
+    };
 
-  async function callApi(path: string, body: any) {
-    const res = await fetch(`${apiBase}${path}`, {
+    const res = await fetch(`${apiBase}/match/top`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ profile, k: 5, mode: "online" })
     });
-    if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    setResult(data);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setMatches([]);
-    setRooms([]);
-
-    try {
-      // profile object
-      let profile: any = {
-        city,
-        budget_pkr: budget,
-        sleep_schedule: sleep || null,
-        cleanliness: cleanliness || null,
-        noise_tolerance: noise || null,
-        guests_freq: guests || null,
-        smoking: smoking || null,
-        raw_text: adText || null,
-      };
-
-      // optional parse (like streamlit)
-      if (adText.trim()) {
-        try {
-          const parsed = await callApi("/profiles/parse", {
-            text: adText,
-            mode: "degraded",
-          });
-          const prof2 = parsed?.profile || {};
-          for (const [k, v] of Object.entries(prof2)) {
-            if (profile[k] == null && v) profile[k] = v;
-          }
-        } catch (err) {
-          console.warn("Parse failed:", err);
-        }
-      }
-
-      // call /match/top
-      const resp = await callApi("/match/top", {
-        profile,
-        k: 10,
-        mode: "degraded",
-      });
-      setMatches(resp?.matches || []);
-
-      // call /rooms/suggest
-      if (showRooms) {
-        try {
-          const r = await callApi("/rooms/suggest", {
-            city,
-            per_person_budget: budget,
-            needed_amenities: [],
-            mode: "degraded",
-          });
-          setRooms(r?.listings || []);
-        } catch (err) {
-          console.warn("Rooms suggest failed:", err);
-        }
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // helpers for UI
-  function scoreStripe(score: number) {
-    if (score >= 70) return "border-l-4 border-green-500";
-    if (score >= 50) return "border-l-4 border-amber-500";
-    return "border-l-4 border-rose-500";
-  }
-
-  function rentStripe(fit: string) {
-    if (fit === "good") return "border-l-4 border-green-500";
-    if (fit === "mid") return "border-l-4 border-amber-500";
-    return "border-l-4 border-rose-500";
-  }
-
+  // ---------------- UI ----------------
   return (
-    <div className="max-w-3xl mx-auto bg-neutral-900 text-neutral-100 rounded-2xl p-6 shadow-xl space-y-6 font-sans">
-      <header>
-        <h2 className="text-2xl font-semibold">Room Matcher 🧭</h2>
-        <p className="text-sm text-neutral-400">
-          Smarter roommate matching — explainable, fast, and user-friendly
-        </p>
-      </header>
+    <div
+      style={{
+        padding: "1rem",
+        background: "#111",
+        color: "#eee",
+        borderRadius: "1rem",
+        fontFamily: "sans-serif"
+      }}
+    >
+      <h3 style={{ marginBottom: "0.5rem" }}>Room Matcher 🧭</h3>
+      <p style={{ fontSize: "0.9rem", color: "#aaa" }}>
+        Smarter roommate matching — explainable, fast, and user-friendly
+      </p>
 
-      {/* form */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm">City</label>
-          <select
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
-          >
-            <option value="">—</option>
-            <option value="Lahore">Lahore</option>
-            <option value="Karachi">Karachi</option>
-            <option value="Islamabad">Islamabad</option>
-            <option value="Peshawar">Peshawar</option>
-            <option value="Quetta">Quetta</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm">Budget (PKR)</label>
+      {/* Inputs */}
+      <div style={{ display: "grid", gap: "0.5rem", marginTop: "1rem" }}>
+        <label>
+          City
+          <input value={city} onChange={(e) => setCity(e.target.value)} />
+        </label>
+        <label>
+          Budget (PKR)
           <input
             type="number"
             value={budget}
             onChange={(e) => setBudget(Number(e.target.value))}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
+          />
+        </label>
+        <label>
+          Role
+          <select value={role} onChange={(e) => setRole(e.target.value as any)}>
+            <option value="student">Student</option>
+            <option value="professional">Professional</option>
+          </select>
+        </label>
+        <label>
+          Anchor Location
+          <input
+            value={anchor}
+            onChange={(e) => setAnchor(e.target.value)}
+            placeholder="e.g. FAST NUCES, HBL Tower"
+          />
+        </label>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            type="number"
+            placeholder="Latitude"
+            value={lat ?? ""}
+            onChange={(e) => setLat(parseFloat(e.target.value))}
+          />
+          <input
+            type="number"
+            placeholder="Longitude"
+            value={lng ?? ""}
+            onChange={(e) => setLng(parseFloat(e.target.value))}
           />
         </div>
-        <div>
-          <label className="block text-sm">Sleep Schedule</label>
-          <select
-            value={sleep}
-            onChange={(e) => setSleep(e.target.value)}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
-          >
-            <option value="">—</option>
-            <option value="early_bird">Early Bird</option>
-            <option value="night_owl">Night Owl</option>
-            <option value="flex">Flexible</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm">Cleanliness</label>
-          <select
-            value={cleanliness}
-            onChange={(e) => setCleanliness(e.target.value)}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
-          >
-            <option value="">—</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm">Noise Tolerance</label>
-          <select
-            value={noise}
-            onChange={(e) => setNoise(e.target.value)}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
-          >
-            <option value="">—</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm">Guests</label>
-          <select
-            value={guests}
-            onChange={(e) => setGuests(e.target.value)}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
-          >
-            <option value="">—</option>
-            <option value="rare">Rare</option>
-            <option value="sometimes">Sometimes</option>
-            <option value="often">Often</option>
-            <option value="daily">Daily</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm">Smoking</label>
-          <select
-            value={smoking}
-            onChange={(e) => setSmoking(e.target.value)}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
-          >
-            <option value="">—</option>
-            <option value="no">No</option>
-            <option value="yes">Yes</option>
-          </select>
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm">Ad Text (optional)</label>
-          <textarea
-            value={adText}
-            onChange={(e) => setAdText(e.target.value)}
-            className="w-full rounded-xl bg-neutral-800 border border-neutral-700 px-3 py-2"
-            rows={3}
-            placeholder="Mixed Urdu/English ad..."
-          />
-        </div>
-        <div className="md:col-span-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 transition px-4 py-3 font-medium text-white"
-          >
-            {loading ? "Finding matches…" : "Find Matches"}
-          </button>
-        </div>
-      </form>
+        <button
+          onClick={handleMatch}
+          style={{
+            padding: "0.5rem",
+            borderRadius: "0.5rem",
+            background: "#22c55e",
+            color: "white",
+            fontWeight: "bold"
+          }}
+        >
+          Find Matches
+        </button>
+      </div>
 
-      {error && <div className="p-3 rounded-xl bg-red-900/30 border border-red-700">{error}</div>}
-
-      {/* matches */}
-      {matches.length > 0 && (
-        <section className="space-y-3">
-          <h3 className="text-lg font-medium">Top Matches</h3>
-          {matches.slice(0, 5).map((m, i) => (
-            <div key={i} className={`rounded-xl bg-white text-neutral-900 p-4 shadow ${scoreStripe(m.score)}`}>
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">Profile {m.other_profile_id || "-"}</span>
-                <span className="text-sm font-bold bg-neutral-100 px-2 py-0.5 rounded-full">{m.score}</span>
+      {/* Results */}
+      {result && (
+        <div style={{ marginTop: "1rem" }}>
+          <h4>Top Matches</h4>
+          {result.matches?.map((m: any) => (
+            <div
+              key={m.other_profile_id}
+              style={{
+                background: "white",
+                color: "#111",
+                borderRadius: "0.5rem",
+                padding: "0.5rem",
+                marginBottom: "0.5rem"
+              }}
+            >
+              <b>Profile {m.other_profile_id}</b> — Score {m.score}
+              <div style={{ fontSize: "0.8rem", color: "#555" }}>
+                {m.reasons?.join(" • ")}
               </div>
-              <p className="text-sm text-neutral-600 mt-1">
-                {m.reasons?.slice(0, 3).join(" • ") || "Good overlap"}
-              </p>
               {m.conflicts?.length > 0 && (
-                <p className="text-sm text-red-600 mt-2">⚠ Conflicts: {m.conflicts.join(", ")}</p>
-              )}
-              {m.tips?.length > 0 && (
-                <p className="text-sm text-amber-700 mt-2">💡 {m.tips.slice(0, 2).join(" • ")}</p>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* rooms */}
-      {showRooms && rooms.length > 0 && (
-        <section className="space-y-3">
-          <h3 className="text-lg font-medium">Suggested Rooms</h3>
-          {rooms.map((r, i) => (
-            <div key={i} className={`rounded-xl bg-white text-neutral-900 p-4 shadow ${rentStripe(r.rent_fit || "mid")}`}>
-              <div className="flex justify-between">
-                <div>
-                  <div className="font-semibold">{r.city}, {r.area}</div>
-                  <div className="text-sm text-neutral-600">PKR {r.monthly_rent_PKR?.toLocaleString()}</div>
+                <div style={{ fontSize: "0.8rem", color: "red" }}>
+                  ⚠ Conflicts:{" "}
+                  {m.conflicts.map((f: any) => f.details || f.type).join(", ")}
                 </div>
-                <span className="text-xs bg-neutral-100 px-2 py-0.5 rounded-full">Listing {r.id || "-"}</span>
-              </div>
-              <p className="text-sm text-neutral-600 mt-1">{(r.amenities || []).join(" • ")}</p>
-              {r.why && <p className="text-sm text-indigo-600 mt-1">{r.why}</p>}
+              )}
+              {m.tips?.map((t: string, idx: number) => (
+                <div key={idx} style={{ fontSize: "0.75rem" }}>
+                  💡 {t}
+                </div>
+              ))}
             </div>
           ))}
-        </section>
+
+          <h4 style={{ marginTop: "1rem" }}>Suggested Rooms</h4>
+          {result.rooms?.map((r: any) => (
+            <div
+              key={r.listing_id}
+              style={{
+                background: "white",
+                color: "#111",
+                borderRadius: "0.5rem",
+                padding: "0.5rem",
+                marginBottom: "0.5rem"
+              }}
+            >
+              <b>
+                {r.city}, {r.area}
+              </b>{" "}
+              — PKR {r.monthly_rent_PKR}
+              <div style={{ fontSize: "0.8rem", color: "#555" }}>
+                {r.amenities?.join(", ")}
+              </div>
+              {r.distance_km && r.eta_minutes && (
+                <div style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                  📍 {r.distance_km} km away (~{r.eta_minutes} min)
+                </div>
+              )}
+              {r.rooms_available && (
+                <div style={{ fontSize: "0.8rem", color: "#444" }}>
+                  🛏️ {r.rooms_available} spaces left
+                </div>
+              )}
+              <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                {r.why_match}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

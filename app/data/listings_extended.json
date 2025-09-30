@@ -1,0 +1,267 @@
+[
+  {
+    "id": "H-0001",
+    "city": "Faisalabad",
+    "area": "D Ground",
+    "monthly_rent_PKR": 20000,
+    "amenities": [
+      "WiFi",
+      "Gym",
+      "Furnished"
+    ],
+    "status": "available",
+    "rooms_available": 1,
+    "reserved_by": [],
+    "geo": {
+      "lat": 31.409905,
+      "lng": 73.075503,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923143173611",
+      "whatsapp": true,
+      "email": "watsontyler@example.org"
+    },
+    "why_match": "Notice show their body newspaper challenge record challenge must perhaps.",
+    "created_at": "2025-09-30T17:46:58.539321"
+  },
+  {
+    "id": "H-0002",
+    "city": "Islamabad",
+    "area": "G-11",
+    "monthly_rent_PKR": 20000,
+    "amenities": [
+      "Furnished",
+      "Parking",
+      "Mess facility",
+      "Kitchen"
+    ],
+    "status": "available",
+    "rooms_available": 3,
+    "reserved_by": [],
+    "geo": {
+      "lat": 31.416213,
+      "lng": 73.070884,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923099963321",
+      "whatsapp": true,
+      "email": "stephanie03@example.com"
+    },
+    "why_match": "Interest cover some fly real.",
+    "created_at": "2025-09-30T17:46:58.539321"
+  },
+  {
+    "id": "H-0003",
+    "city": "Islamabad",
+    "area": "Blue Area",
+    "monthly_rent_PKR": 25000,
+    "amenities": [
+      "WiFi",
+      "AC",
+      "Mess facility"
+    ],
+    "status": "available",
+    "rooms_available": 2,
+    "reserved_by": [],
+    "geo": {
+      "lat": 31.476667,
+      "lng": 74.403573,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923920863489",
+      "whatsapp": true,
+      "email": "michellestone@example.org"
+    },
+    "why_match": "Agency another the hotel action high leave war election issue while.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  },
+  {
+    "id": "H-0004",
+    "city": "Rawalpindi",
+    "area": "Satellite Town",
+    "monthly_rent_PKR": 20000,
+    "amenities": [
+      "Gym",
+      "Mess facility",
+      "WiFi"
+    ],
+    "status": "available",
+    "rooms_available": 2,
+    "reserved_by": [],
+    "geo": {
+      "lat": 31.475193,
+      "lng": 74.415681,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923185023746",
+      "whatsapp": true,
+      "email": "brian57@example.org"
+    },
+    "why_match": "Among threat each available company kind rate know either poor.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  },
+  {
+    "id": "H-0005",
+    "city": "Islamabad",
+    "area": "F-10",
+    "monthly_rent_PKR": 30000,
+    "amenities": [
+      "Furnished",
+      "WiFi",
+      "Gym"
+    ],
+    "status": "available",
+    "rooms_available": 2,
+    "reserved_by": [],
+    "geo": {
+      "lat": 33.710104,
+      "lng": 73.064108,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923666722783",
+      "whatsapp": true,
+      "email": "brookehampton@example.net"
+    },
+    "why_match": "Body consumer character style modern experience lawyer.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  },
+  {
+    "id": "H-0006",
+    "city": "Lahore",
+    "area": "Gulberg",
+    "monthly_rent_PKR": 25000,
+    "amenities": [
+      "Kitchen",
+      "AC",
+      "Mess facility",
+      "Separate washroom"
+    ],
+    "status": "available",
+    "rooms_available": 2,
+    "reserved_by": [],
+    "geo": {
+      "lat": 24.939273,
+      "lng": 67.120432,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923431429740",
+      "whatsapp": true,
+      "email": "kylewilliams@example.org"
+    },
+    "why_match": "Rule star mention whether out over.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  },
+  {
+    "id": "H-0007",
+    "city": "Faisalabad",
+    "area": "D Ground",
+    "monthly_rent_PKR": 20000,
+    "amenities": [
+      "Gym",
+      "WiFi",
+      "AC",
+      "Mess facility"
+    ],
+    "status": "available",
+    "rooms_available": 3,
+    "reserved_by": [],
+    "geo": {
+      "lat": 33.725597,
+      "lng": 73.074908,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923415430548",
+      "whatsapp": true,
+      "email": "davidgriffin@example.org"
+    },
+    "why_match": "Between serious room few edge body.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  },
+  {
+    "id": "H-0008",
+    "city": "Lahore",
+    "area": "Model Town",
+    "monthly_rent_PKR": 15000,
+    "amenities": [
+      "WiFi",
+      "Furnished",
+      "Mess facility",
+      "Kitchen"
+    ],
+    "status": "available",
+    "rooms_available": 2,
+    "reserved_by": [],
+    "geo": {
+      "lat": 31.523376,
+      "lng": 74.363095,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923199270771",
+      "whatsapp": true,
+      "email": "rbonilla@example.net"
+    },
+    "why_match": "Shake visit kitchen since store girl picture.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  },
+  {
+    "id": "H-0009",
+    "city": "Lahore",
+    "area": "Gulberg",
+    "monthly_rent_PKR": 30000,
+    "amenities": [
+      "Parking",
+      "Kitchen",
+      "Gym"
+    ],
+    "status": "available",
+    "rooms_available": 3,
+    "reserved_by": [],
+    "geo": {
+      "lat": 31.475259,
+      "lng": 74.412338,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923737279641",
+      "whatsapp": true,
+      "email": "kathleen87@example.com"
+    },
+    "why_match": "Hotel main onto what factor rest.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  },
+  {
+    "id": "H-0010",
+    "city": "Faisalabad",
+    "area": "D Ground",
+    "monthly_rent_PKR": 25000,
+    "amenities": [
+      "Furnished",
+      "Separate washroom",
+      "Parking",
+      "Kitchen"
+    ],
+    "status": "available",
+    "rooms_available": 1,
+    "reserved_by": [],
+    "geo": {
+      "lat": 31.494494,
+      "lng": 74.312773,
+      "source": "gps"
+    },
+    "owner_contact": {
+      "phone": "+923364013928",
+      "whatsapp": true,
+      "email": "zevans@example.net"
+    },
+    "why_match": "Production water tough type fill drug sea analysis matter soon.",
+    "created_at": "2025-09-30T17:46:58.541893"
+  }
+]
