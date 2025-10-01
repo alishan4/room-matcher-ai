@@ -55,7 +55,7 @@
 
 
 # app/agents/room_hunter.py
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from math import radians, sin, cos, sqrt, atan2
 from ..utils.num import as_int
 
@@ -142,3 +142,75 @@ def rank_rooms(q: Dict, listings: List[Dict[str, Any]], k: int = 3) -> List[Dict
 
     scored.sort(key=lambda x: x[0], reverse=True)
     return [x[1] for x in scored[:k]]
+
+
+def suggest_rooms(
+    city: Optional[str],
+    per_person_budget: Optional[int],
+    needed_amenities: Optional[List[str]],
+    listings: Optional[List[Dict[str, Any]]],
+    *,
+    mode: str = "degraded",
+    limit: int = 5,
+    anchor_location: Optional[Dict[str, Any]] = None,
+    user_geo: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Lightweight helper for the `/rooms/suggest` endpoint.
+
+    The implementation deliberately reuses :func:`rank_rooms` so that the
+    availability, budget, and geo guards stay in sync with the matchmaking
+    pipeline.  Additional request-level filters (e.g. amenities) are handled
+    prior to ranking, after which we optionally enrich the results with
+    commute estimates when a user anchor is available.
+    """
+
+    effective_mode = (mode or "degraded").lower()
+    if effective_mode not in ("online", "degraded"):
+        effective_mode = "degraded"
+
+    top_k = max(1, int(limit) if limit else 1)
+
+    q: Dict[str, Any] = {
+        "city": city,
+        "budget_pkr": as_int(per_person_budget) if per_person_budget is not None else None,
+    }
+    q["mode"] = effective_mode
+
+    if anchor_location:
+        q["anchor_location"] = anchor_location
+    if user_geo:
+        q["geo"] = user_geo
+
+    required = {
+        str(a).strip().lower()
+        for a in (needed_amenities or [])
+        if a is not None and str(a).strip()
+    }
+
+    pool: List[Dict[str, Any]] = []
+    for listing in listings or []:
+        if required:
+            amenities = {
+                str(a).strip().lower()
+                for a in (listing.get("amenities") or [])
+                if a is not None and str(a).strip()
+            }
+            if not required.issubset(amenities):
+                continue
+        pool.append(listing)
+
+    ranked = rank_rooms(q, pool, k=top_k)
+
+    user_loc = q.get("geo") or q.get("anchor_location")
+    if user_loc and effective_mode == "online":
+        try:
+            from .maps_planner import enrich_with_commute
+
+            ranked = enrich_with_commute(user_loc, ranked)
+        except Exception:
+            # Never fail the suggestion endpoint if enrichment is unavailable.
+            # The base ranking already returns useful matches; commute data is
+            # a best-effort add-on that depends on optional geo libraries.
+            pass
+
+    return ranked
