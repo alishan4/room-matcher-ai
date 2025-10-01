@@ -1,4 +1,4 @@
-// frontend/widget/src/mount.tsx
+// frontend/widget/src/Mount.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import RoomMatcherWidget, { RoomMatcherWidgetProps } from "./RoomMatcherWidget";
@@ -10,6 +10,8 @@ export function mount(selectorOrEl: string | Element, props?: RoomMatcherWidgetP
   const root = ReactDOM.createRoot(el as Element);
   root.render(<RoomMatcherWidget {...props} />);
 }
+
+export type { RoomMatcherWidgetProps };
 
 // provide global for <script> usage
 declare global {

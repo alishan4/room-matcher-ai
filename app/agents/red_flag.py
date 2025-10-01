@@ -97,6 +97,8 @@
 from typing import Dict, List, Any
 from math import radians, sin, cos, sqrt, atan2
 
+COMMUTE_COST_PER_KM = 40  # Rough PKR cost per km (one-way) for daily commute
+
 def _norm(v: Any) -> str:
     return (str(v or "").strip().lower())
 
@@ -136,6 +138,13 @@ def red_flags(a: Dict, b: Dict) -> List[Dict[str, str]]:
     A = {k: _norm(v) for k, v in (a or {}).items()}
     B = {k: _norm(v) for k, v in (b or {}).items()}
     flags: List[Dict[str, str]] = []
+
+    def _role_label(role_key: str) -> str:
+        mapping = {
+            "student": "student",
+            "professional": "working professional",
+        }
+        return mapping.get(role_key, role_key or "")
 
     # --- Smoking clash ---
     if A.get("smoking") and B.get("smoking"):
@@ -185,6 +194,15 @@ def red_flags(a: Dict, b: Dict) -> List[Dict[str, str]]:
             "details": "Different study routines"
         })
 
+    # --- Role lifestyle gap (e.g., student vs professional) ---
+    role_a, role_b = A.get("role"), B.get("role")
+    if role_a and role_b and role_a != role_b:
+        flags.append({
+            "type": "role_lifestyle_gap",
+            "severity": "medium",
+            "details": f"Different routines: {_role_label(role_a)} vs {_role_label(role_b)}"
+        })
+
     gap = _budget_gap(a, b)
     if gap > 0.35:
         flags.append({
@@ -196,21 +214,45 @@ def red_flags(a: Dict, b: Dict) -> List[Dict[str, str]]:
     # --- Anchor conflicts ---
     a_anchor, b_anchor = a.get("anchor_location"), b.get("anchor_location")
     if isinstance(a_anchor, dict) and isinstance(b_anchor, dict):
+        def _label(anchor: Dict[str, Any]) -> str:
+            return anchor.get("label") or anchor.get("name") or "their anchor"
+
+        label_a = _label(a_anchor)
+        label_b = _label(b_anchor)
+
         # Different cities in anchor labels
         if a_anchor.get("label") and b_anchor.get("label"):
-            if a_anchor["label"].split(",")[0].lower() != b_anchor["label"].split(",")[0].lower():
+            if a_anchor["label"].split(",")[0].strip().lower() != b_anchor["label"].split(",")[0].strip().lower():
                 flags.append({
                     "type": "anchor_city_mismatch",
                     "severity": "high",
                     "details": f"Different anchor cities: {a_anchor['label']} vs {b_anchor['label']}"
                 })
-        # Far distance
+
+        def _commute_cost(distance_km: float) -> int:
+            # Two-way commute estimate (there and back)
+            return int(max(distance_km, 0) * 2 * COMMUTE_COST_PER_KM)
+
         d = haversine_km(a_anchor, b_anchor)
-        if d > 50:
+        if d > 0 and d <= 10:
+            pass  # Considered fine, no flag
+        elif 10 < d <= 25:
+            flags.append({
+                "type": "anchor_commute_notice",
+                "severity": "low",
+                "details": f"Commute between {label_a} and {label_b} is ~{int(d)} km (≈PKR {_commute_cost(d)} / day)"
+            })
+        elif 25 < d <= 50:
+            flags.append({
+                "type": "anchor_commute_heavy",
+                "severity": "medium",
+                "details": f"Lengthy commute: {label_a} ↔ {label_b} ~{int(d)} km (≈PKR {_commute_cost(d)} / day)"
+            })
+        elif d > 50:
             flags.append({
                 "type": "anchor_too_far",
                 "severity": "high",
-                "details": f"Anchors are {int(d)} km apart"
+                "details": f"Anchors {label_a} and {label_b} are {int(d)} km apart (≈PKR {_commute_cost(d)} / day)"
             })
 
     return flags

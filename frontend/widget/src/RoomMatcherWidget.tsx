@@ -1,5 +1,5 @@
 // frontend/widget/src/RoomMatcherWidget.tsx
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 // 👇 Props match backend inputs
 export interface RoomMatcherWidgetProps {
@@ -51,6 +51,16 @@ export default function RoomMatcherWidget({
     const data = await res.json();
     setResult(data);
   }
+
+  const severityPill = useMemo(
+    () =>
+      ({
+        high: { bg: "#7f1d1d", text: "#fecaca", label: "High" },
+        medium: { bg: "#78350f", text: "#fde68a", label: "Medium" },
+        low: { bg: "#1f2937", text: "#fef3c7", label: "Low" }
+      } as const),
+    []
+  );
 
   // ---------------- UI ----------------
   return (
@@ -140,21 +150,74 @@ export default function RoomMatcherWidget({
                 marginBottom: "0.5rem"
               }}
             >
-              <b>Profile {m.other_profile_id}</b> — Score {m.score}
-              <div style={{ fontSize: "0.8rem", color: "#555" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <b>Profile {m.other_profile_id}</b>
+                <span style={{ fontSize: "0.8rem", color: "#0f172a", fontWeight: 600 }}>
+                  Score {m.score}
+                </span>
+              </div>
+              <div style={{ fontSize: "0.8rem", color: "#555", marginTop: "0.25rem" }}>
                 {m.reasons?.join(" • ")}
               </div>
               {m.conflicts?.length > 0 && (
-                <div style={{ fontSize: "0.8rem", color: "red" }}>
-                  ⚠ Conflicts:{" "}
-                  {m.conflicts.map((f: any) => f.details || f.type).join(", ")}
+                <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.35rem" }}>
+                  {m.conflicts.map((f: any, idx: number) => {
+                    const sev = severityPill[(f.severity || "low").toLowerCase() as keyof typeof severityPill];
+                    return (
+                      <div
+                        key={`${f.type}-${idx}`}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.25rem",
+                          borderLeft: `4px solid ${sev?.bg ?? "#1f2937"}`,
+                          paddingLeft: "0.5rem"
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                          <span
+                            style={{
+                              background: sev?.bg ?? "#1f2937",
+                              color: sev?.text ?? "#fff7ed",
+                              borderRadius: "999px",
+                              fontSize: "0.65rem",
+                              padding: "0.15rem 0.5rem",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em"
+                            }}
+                          >
+                            {sev?.label ?? (f.severity || "Low")}
+                          </span>
+                          <strong style={{ fontSize: "0.75rem", color: "#7f1d1d" }}>
+                            {f.type?.replace(/_/g, " ")}
+                          </strong>
+                        </div>
+                        <span style={{ fontSize: "0.75rem", color: "#374151" }}>
+                          {f.details || "Needs attention"}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-              {m.tips?.map((t: string, idx: number) => (
-                <div key={idx} style={{ fontSize: "0.75rem" }}>
-                  💡 {t}
+              {m.tips?.length > 0 && (
+                <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.25rem" }}>
+                  {m.tips.map((t: string, idx: number) => (
+                    <div
+                      key={idx}
+                      style={{
+                        fontSize: "0.75rem",
+                        background: "#f8fafc",
+                        borderRadius: "0.35rem",
+                        padding: "0.35rem",
+                        color: "#0f172a"
+                      }}
+                    >
+                      💡 {t}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           ))}
 
