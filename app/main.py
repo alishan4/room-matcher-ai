@@ -254,6 +254,30 @@ def healthz():
 
 @app.post("/profiles/parse")
 def parse_profile(req: ParseReq, x_mode: Optional[str] = Header(None)):
+    """Parse freeform roommate text into structured attributes.
+
+    Example response::
+
+        {
+            "profile": {
+                "city": "Lahore",
+                "budget_pkr": 35000,
+                "sleep_schedule": "night_owl",
+                "cleanliness": "medium",
+                "noise_tolerance": "medium",
+                "smoking": "no",
+                "guests_freq": "sometimes",
+                "role": "student",
+                "languages": ["en", "ur"],
+                "raw_text": "..."
+            },
+            "confidence": 0.72,
+            "mode_used": "online"
+        }
+
+    Confidence is a heuristic between 0 and 1 describing how sure the parser is
+    about the extracted attributes.
+    """
     mode = _mode(req.mode, x_mode)
     from .agents.profile_reader import parse_profile_text
     prof, conf = parse_profile_text(req.text, mode=mode)
