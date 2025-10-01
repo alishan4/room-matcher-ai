@@ -154,6 +154,7 @@ from pydantic import BaseModel
 
 from .graph import run_pipeline
 from .services.firestore import fetch_all_profiles, fetch_all_listings
+from .agents.room_hunter import suggest_rooms
 
 
 SERVER_DEFAULT_MODE = os.getenv("MODE", "online").lower()
@@ -234,6 +235,8 @@ class RoomSuggestReq(BaseModel):
     per_person_budget: int
     needed_amenities: List[str] = []
     mode: Optional[str] = None
+    anchor_location: Optional[Dict[str, Any]] = None
+    geo: Optional[Dict[str, Any]] = None
 
 
 # ---------------- Endpoints ----------------
@@ -306,6 +309,14 @@ def match_top(req: MatchTopReq, x_mode: Optional[str] = Header(None)):
 def rooms_suggest(req: RoomSuggestReq, x_mode: Optional[str] = Header(None)):
     mode = _mode(req.mode, x_mode)
     _load_cached()
-    from .agents.room_hunter import suggest_rooms
-    out = suggest_rooms(req.city, req.per_person_budget, req.needed_amenities, _listings_cache, mode=mode, limit=5)
+    out = suggest_rooms(
+        req.city,
+        req.per_person_budget,
+        req.needed_amenities,
+        _listings_cache,
+        mode=mode,
+        limit=5,
+        anchor_location=req.anchor_location,
+        user_geo=req.geo,
+    )
     return {"listings": out, "mode_used": mode}
