@@ -77,7 +77,7 @@
 #     return {"mode": mode, "matches": top, "rooms": rooms, "trace": trace}
 
 # app/graph.py
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Iterable, Set
 from .agents.profile_reader import normalize_profile
 from .agents.retrieval import CandidateRetrieval, RetrievalConfig
 from .agents.match_scorer import score_pair, MatchScoreConfig
@@ -96,6 +96,7 @@ def run_pipeline(
     top_k: int = 5,
     match_config: Optional[MatchScoreConfig] = None,
     retrieval_config: Optional[RetrievalConfig] = None,
+    notified_match_ids: Optional[Iterable[str]] = None,
 ) -> Dict[str, Any]:
 
     class _MemDS:
@@ -115,10 +116,15 @@ def run_pipeline(
 
     # ---- Step 3–5: Match scoring, red flags, wingman ----
     items: List[Dict[str, Any]] = []
+    notified_ids: Set[str] = set(filter(None, (notified_match_ids or [])))
     for c in pool:
         total, reasons, subscores = score_pair(q, normalize_profile(c), config=match_config)
         flags = red_flags(q, c)
         cand_budget = as_int(c.get("budget_pkr") or c.get("budget_PKR") or c.get("budget"))
+
+        match_id = c.get("id") or c.get("profile_id")
+        is_new = bool(match_id) and match_id not in notified_ids
+        notification_status = "new" if is_new else ("notified" if match_id in notified_ids else "unknown")
 
         items.append({
             "other_profile_id": c.get("id"),
@@ -130,6 +136,8 @@ def run_pipeline(
             "city": c.get("city"),
             "budget_pkr": cand_budget,
             "tips": wingman(reasons, flags, profile=q, other=c),  # 👈 updated call
+            "is_new": is_new,
+            "notification_status": notification_status,
         })
 
     items.sort(key=lambda x: x["score"], reverse=True)
@@ -156,12 +164,18 @@ def run_pipeline(
             {"agent": "CandidateRetrieval", "inputs": {"method": meta.get("method")}, "outputs": {"count": len(pool), **({"fallback": meta.get("fallback")} if meta.get("fallback") else {})}},
         ]
     }
+    new_count = 0
+    notified_count = 0
     for t in top:
         trace["steps"].append({
             "agent": "MatchScorer",
             "inputs": {"pair": f'{q.get("id","A?")} vs {t["other_profile_id"]}'},
             "outputs": {"score": t["score"], "flags": [_flag_label(f) for f in (t.get("conflicts") or [])]},
         })
+        if t.get("notification_status") == "new":
+            new_count += 1
+        elif t.get("notification_status") == "notified":
+            notified_count += 1
     trace["steps"].append({
         "agent": "RoomHunter",
         "inputs": {"city": q.get("city"), "budget": q.get("budget_pkr")},
@@ -172,6 +186,16 @@ def run_pipeline(
             "agent": "MapsPlanner",
             "inputs": {"user_loc": user_loc},
             "outputs": {"rooms_enriched": len(rooms)}
+        })
+
+    if notified_ids or new_count or notified_count:
+        trace["steps"].append({
+            "agent": "MatchNotifier",
+            "inputs": {"already_notified": len(notified_ids)},
+            "outputs": {
+                "new_matches": new_count,
+                "previously_notified": notified_count,
+            },
         })
 
     return {"mode": mode, "matches": top, "rooms": rooms, "trace": trace}

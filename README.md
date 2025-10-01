@@ -138,6 +138,31 @@ Install deps:
 pip install -r requirements.txt
 ```
 
+### 2. Auto-Hunt background workers (optional)
+
+`app/agents/watcher.py` now runs through a Celery worker. To enable asynchronous
+auto-hunt notifications set the broker/backend and start the worker alongside
+FastAPI:
+
+```bash
+export CELERY_BROKER_URL=redis://localhost:6379/0
+export CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+celery -A app.services.task_queue.celery_app worker --loglevel=info
+```
+
+Configuration knobs can be tuned via environment variables or Firestore
+documents in the `watcher_configs` collection:
+
+- `AUTO_HUNT_DEFAULT_CADENCE_SEC` – polling cadence (default `900` seconds)
+- `AUTO_HUNT_DEFAULT_MIN_SCORE` – minimum score required to notify
+- `AUTO_HUNT_DEFAULT_TOP_K` – number of matches pulled each cycle
+- `AUTO_HUNT_DEFAULT_CHANNELS` – comma separated list of channels (`email`,
+  `sms`, `webhook`)
+
+Firestore overrides support partner specific channels/webhooks and allow
+per-institution cadences without re-deploying the backend.
+
 ---
 
 ## 🧪 Profile Matching Evaluation Harness
