@@ -136,3 +136,34 @@ Both modes return **the same schema**, so frontend works seamlessly.
 Install deps:
 ```bash
 pip install -r requirements.txt
+```
+
+---
+
+## 🧪 Profile Matching Evaluation Harness
+
+We ship an offline harness that stress-tests the rule-based matcher using the
+JSON fixtures in `app/data/`. It fabricates synthetic profile pairs to probe
+role mismatches, budget gaps, and anchor-distance edge cases while logging the
+full pipeline trace.
+
+### Run the suite
+
+```bash
+python training/profile_match_harness.py            # grid search over configs
+python training/profile_match_harness.py --no-sweep  # single run with defaults
+```
+
+Outputs land in `training/out/` (override with `--output-dir`). A sweep produces
+two JSON files:
+
+- `profile_harness_best_config.json` – best-performing weight/threshold combo
+  plus detailed traces, subscores, and red-flag summaries for each scenario.
+- `profile_harness_grid.json` – metrics for every configuration explored,
+  useful for plotting precision@k trends across tuning cycles.
+
+The key metrics are `avg_precision@1` and `avg_precision@3`, computed against
+hand-labelled compatibility targets for the synthetic scenarios. Use these to
+compare configurations between finetuning cycles. Traces capture intermediate
+agent outputs so you can debug why a pair succeeded or failed under a given
+configuration.

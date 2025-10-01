@@ -77,10 +77,10 @@
 #     return {"mode": mode, "matches": top, "rooms": rooms, "trace": trace}
 
 # app/graph.py
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .agents.profile_reader import normalize_profile
-from .agents.retrieval import CandidateRetrieval
-from .agents.match_scorer import score_pair
+from .agents.retrieval import CandidateRetrieval, RetrievalConfig
+from .agents.match_scorer import score_pair, MatchScoreConfig
 from .agents.red_flag import red_flags
 from .agents.wingman import wingman
 from .agents.room_hunter import rank_rooms
@@ -93,7 +93,9 @@ def run_pipeline(
     candidates: List[Dict[str, Any]],
     listings: List[Dict[str, Any]],
     mode: str = "degraded",
-    top_k: int = 5
+    top_k: int = 5,
+    match_config: Optional[MatchScoreConfig] = None,
+    retrieval_config: Optional[RetrievalConfig] = None,
 ) -> Dict[str, Any]:
 
     class _MemDS:
@@ -108,13 +110,13 @@ def run_pipeline(
 
     # ---- Step 2: Candidate retrieval ----
     ds = _MemDS(candidates)
-    retr = CandidateRetrieval(ds)
+    retr = CandidateRetrieval(ds, config=retrieval_config)
     pool, meta = retr.retrieve(q, top_n=max(top_k * 10, 100), mode=mode)
 
     # ---- Step 3–5: Match scoring, red flags, wingman ----
     items: List[Dict[str, Any]] = []
     for c in pool:
-        total, reasons, subscores = score_pair(q, normalize_profile(c))
+        total, reasons, subscores = score_pair(q, normalize_profile(c), config=match_config)
         flags = red_flags(q, c)
         cand_budget = as_int(c.get("budget_pkr") or c.get("budget_PKR") or c.get("budget"))
 
