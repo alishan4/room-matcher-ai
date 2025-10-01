@@ -77,6 +77,7 @@
 #     return {"mode": mode, "matches": top, "rooms": rooms, "trace": trace}
 
 # app/graph.py
+import uuid
 from typing import List, Dict, Any, Optional, Iterable, Set
 from .agents.profile_reader import normalize_profile
 from .agents.retrieval import CandidateRetrieval, RetrievalConfig
@@ -157,7 +158,9 @@ def run_pipeline(
             return f.get("type")
         return str(f)
 
+    trace_id = uuid.uuid4().hex
     trace = {
+        "trace_id": trace_id,
         "mode": mode,
         "steps": [
             {"agent": "ProfileReader", "inputs": {"fields": list(input_profile.keys())}, "outputs": {"normalized": True}},

@@ -1,11 +1,51 @@
+options:
+  substitution_option: 'ALLOW_LOOSE'
+
+substitutions:
+  _REGION: asia-south1
+  _SERVICE_NAME: room-matcher-ai
+  _MODE: online
+  _FIRESTORE_ENABLED: 'true'
+  _CACHE_TTL_SEC: '300'
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/firestore-service-account/versions/latest
+      env: FIRESTORE_CREDENTIALS_SECRET
+    - versionName: projects/$PROJECT_ID/secrets/faiss-availability/versions/latest
+      env: FAISS_ENABLED_SECRET
+
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build','-t','asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/room-matcher-ai:$COMMIT_SHA','.']
+    args:
+      - build
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '.'
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push','asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/room-matcher-ai:$COMMIT_SHA']
+    args:
+      - push
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/${_SERVICE_NAME}:$COMMIT_SHA'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    args: ['gcloud','run','deploy','room-matcher-ai',
-           '--image=asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/room-matcher-ai:$COMMIT_SHA',
-           '--region=asia-south1','--allow-unauthenticated']
+    entrypoint: bash
+    env:
+      - 'MODE=${_MODE}'
+      - 'FIRESTORE_ENABLED=${_FIRESTORE_ENABLED}'
+      - 'CACHE_TTL_SEC=${_CACHE_TTL_SEC}'
+    secretEnv:
+      - FIRESTORE_CREDENTIALS_SECRET
+      - FAISS_ENABLED_SECRET
+    args:
+      - -c
+      - |
+        gcloud run deploy ${_SERVICE_NAME} \
+          --image=asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/${_SERVICE_NAME}:$COMMIT_SHA \
+          --region=${_REGION} \
+          --allow-unauthenticated \
+          --set-env-vars=MODE=${MODE},FIRESTORE_ENABLED=${FIRESTORE_ENABLED},CACHE_TTL_SEC=${CACHE_TTL_SEC},ENABLE_STARTUP_WARMUP=true \
+          --set-secrets=FIRESTORE_CREDENTIALS=firestore-service-account:latest,FAISS_ENABLED=faiss-availability:latest \
+          --health-check-path=/healthz \
+          --min-instances=1 \
+          --max-instances=3
 images:
-  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/room-matcher-ai:$COMMIT_SHA'
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/rm-repo/${_SERVICE_NAME}:$COMMIT_SHA'

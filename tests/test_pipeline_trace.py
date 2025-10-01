@@ -30,3 +30,4 @@ def test_trace_marks_new_vs_notified():
 
     notifier_step = next(step for step in rerun["trace"]["steps"] if step["agent"] == "MatchNotifier")
     assert notifier_step["outputs"]["previously_notified"] >= 1
+    assert rerun["trace"].get("trace_id"), "expected pipeline trace to include a stable trace_id"
