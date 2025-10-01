@@ -192,3 +192,12 @@ hand-labelled compatibility targets for the synthetic scenarios. Use these to
 compare configurations between finetuning cycles. Traces capture intermediate
 agent outputs so you can debug why a pair succeeded or failed under a given
 configuration.
+
+---
+
+## 📦 Deployment Operations
+
+An end-to-end Cloud Build → Cloud Run deployment runbook for university and
+partner operators lives in [`docs/deployment.md`](docs/deployment.md). It covers
+secret management, environment configuration, rollout verification (health
+checks, cache warmup script, and log monitoring), plus rollback commands.

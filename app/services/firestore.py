@@ -4,7 +4,14 @@ from typing import List, Dict, Optional, Tuple, Any
 from app.agents.profile_reader import normalize_profile
 
 USE_FIRESTORE = os.getenv("FIRESTORE_ENABLED", "false").lower() == "true"
-PROJECT_ID = os.getenv("GCP_PROJECT")
+PROJECT_ID = os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT")
+_CREDENTIALS_PATH = os.getenv("FIRESTORE_CREDENTIALS")
+
+if _CREDENTIALS_PATH and os.path.exists(_CREDENTIALS_PATH):
+    # Surface the secret-based credentials to the Google client libraries.  When
+    # Cloud Run injects a secret via --set-secrets the environment variable
+    # points to a file path containing the JSON payload.
+    os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", _CREDENTIALS_PATH)
 
 _CONFIG_LOCK = threading.Lock()
 _LOCAL_CONFIG_CACHE: Dict[str, Dict[str, Any]] = {}
