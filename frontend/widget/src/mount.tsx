@@ -1,4 +1,4 @@
-// frontend/widget/src/Mount.tsx
+// frontend/widget/src/mount.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import RoomMatcherWidget, { RoomMatcherWidgetProps } from "./RoomMatcherWidget";
