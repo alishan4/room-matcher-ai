@@ -32,12 +32,17 @@ export default function RoomMatcherWidget({
 
   // ---------------- API Call ----------------
   async function handleMatch() {
+    const geo =
+      lat !== undefined && lng !== undefined && !Number.isNaN(lat) && !Number.isNaN(lng)
+        ? { lat, lng }
+        : null;
+
     const profile: any = {
       city,
       budget_pkr: budget,
       role,
       anchor_location: anchor ? { name: anchor } : null,
-      geo: lat && lng ? { lat, lng } : null
+      geo
     };
 
     const res = await fetch(`${apiBase}/match/top`, {
@@ -112,13 +117,21 @@ export default function RoomMatcherWidget({
             type="number"
             placeholder="Latitude"
             value={lat ?? ""}
-            onChange={(e) => setLat(parseFloat(e.target.value))}
+            onChange={(e) => {
+              const value = e.target.value;
+              const parsed = Number(value);
+              setLat(value === "" || Number.isNaN(parsed) ? undefined : parsed);
+            }}
           />
           <input
             type="number"
             placeholder="Longitude"
             value={lng ?? ""}
-            onChange={(e) => setLng(parseFloat(e.target.value))}
+            onChange={(e) => {
+              const value = e.target.value;
+              const parsed = Number(value);
+              setLng(value === "" || Number.isNaN(parsed) ? undefined : parsed);
+            }}
           />
         </div>
         <button
