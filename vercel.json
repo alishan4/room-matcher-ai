@@ -1,0 +1,9 @@
+{
+  "functions": {},
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ]
+}
