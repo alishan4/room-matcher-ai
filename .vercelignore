@@ -1,0 +1,26 @@
+# Python
+.venv
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Git
+.git/
+
+# Caches
+.cache/
+.vercel/
+.env
+.env.*
+
+# Data / models (VERY IMPORTANT)
+*.json
+*.csv
+*.pkl
+*.bin
+*.model
+
+# OS junk
+.DS_Store
