@@ -2,6 +2,8 @@
 .venv
 __pycache__/
 *.pyc
+*.py
+requirements.txt
 
 # Node
 node_modules/
@@ -24,3 +26,4 @@ node_modules/
 
 # OS junk
 .DS_Store
+ 
